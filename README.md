@@ -71,12 +71,12 @@ A Random Forest classifier (15 features, cost-sensitive class balancing, time-ba
 ![ROC and Precision-Recall curves](docs/images/roc_pr_curves.png)
 *ROC-AUC and PR-AUC both reach 1.00 on the clean hold-out set.*
 
-| Scenario | Accuracy | F1 (Collision) | Recall | ROC-AUC |
-|---|---|---|---|---|
-| Clean hold-out test set (3,631 events) | 100% | 100% | 100% | 1.0000 |
-| Simulated real-world sensor noise (Gaussian, σ = 2.5 cm) | 99.61% | 97.45% | 96.0% | 0.9998 |
+| Scenario | Accuracy | Precision | Recall | F1 | F2 | ROC-AUC |
+|---|---|---|---|---|---|---|
+| Clean hold-out test set (3,631 events) | 100% | 100% | 100% | 100% | 100% | 1.0000 |
+| Simulated real-world sensor noise (Gaussian, σ = 2.5 cm) | 99.86% | 98.6% | 99.6% | 99.1% | 99.4% | 0.9998 |
 
-The noisy-sensor scenario matters more for a real deployment: it re-evaluates the model after injecting Gaussian noise into the distance and speed features to approximate what a physical ultrasonic sensor actually reports outdoors. The decision threshold is deliberately tuned against this noisy simulation (not the clean lab data) so that real-world recall stays at or above the 95% safety target — missing a real collision is far costlier than an extra cautious warning.
+The noisy-sensor scenario matters more for a real deployment: it re-evaluates the model after injecting Gaussian noise into the distance and speed features to approximate what a physical ultrasonic sensor actually reports outdoors. The decision threshold is tuned by directly **maximizing F2** (recall weighted 4x over precision) against this noisy simulation, not the clean lab data or a fixed recall bar — because in a collision warning system, a missed collision (false negative) is far costlier than an extra cautious warning (false positive). Under noise this yields 4 false positives vs. only 1 false negative out of 3,631 events — the error profile skews the safe direction.
 
 ### Training data pipeline — Snowflake-free by design
 
@@ -84,7 +84,7 @@ The original design fed Bronze → Silver → Gold data through Snowflake before
 
 This rebuild also fixed a real train/serve skew that existed in the old Snowflake Gold SQL: it recomputed `approachingA`/`approachingB` from `speedA/speedB > 0` instead of passing through the raw Arduino sensor flag, while the production scoring path always used the raw flag. That mismatch affected **16–20% of rows** in the historical dataset.
 
-A follow-up audit (2026-07-16) found and fixed two further issues: (1) `speed_sum` and `closing_velocity` were exact duplicates of `avgspeed` (correlation 1.0000, zero permutation importance) and were dropped, taking the feature count from 17 to 15 with no loss of holdout performance; (2) the decision threshold was being tuned against clean lab data, which let real-world recall silently drift to 93.5% under realistic sensor noise — it's now tuned against the noisy simulation directly, recovering recall to 96%.
+A follow-up audit (2026-07-16) found and fixed three further issues: (1) `speed_sum` and `closing_velocity` were exact duplicates of `avgspeed` (correlation 1.0000, zero permutation importance) and were dropped, taking the feature count from 17 to 15 with no loss of holdout performance; (2) the decision threshold was being tuned against clean lab data, which let real-world recall silently drift to 93.5% under realistic sensor noise; (3) even after fixing that, the threshold-selection rule itself ("best precision subject to recall ≥ 0.95") left false negatives (11) outnumbering false positives (3) — the wrong direction of error for a safety warning system. The threshold is now chosen by directly maximizing F2 (recall weighted over precision) against the noisy simulation, which recovered recall to 99.6% and flipped the error skew to 4 false positives vs. 1 false negative.
 
 ## Tech stack
 

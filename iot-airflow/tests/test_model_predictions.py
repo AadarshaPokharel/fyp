@@ -69,10 +69,15 @@ def test_obvious_high_risk_scenario_scores_high(model_bundle):
 
 
 def test_prediction_is_deterministic(model_bundle):
+    # Tolerance (not exact equality): RandomForestClassifier with n_jobs=-1
+    # aggregates tree votes across threads, and thread-scheduling-dependent
+    # summation order can differ the least-significant bit between calls.
+    # That's expected floating-point behavior, not model non-determinism —
+    # a real regression would show up as a difference many orders larger.
     kwargs = dict(dista=20, distb=20, avgspeed=40, approachinga=1, approachingb=1)
     p1 = _predict(model_bundle, **kwargs)
     p2 = _predict(model_bundle, **kwargs)
-    assert p1 == p2, "same input produced different predictions — non-deterministic model/environment"
+    assert p1 == pytest.approx(p2, abs=1e-9), "same input produced meaningfully different predictions"
 
 
 def test_feature_order_matches_backend_predict_route():
