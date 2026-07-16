@@ -63,26 +63,28 @@ frontend/             ── React + Vite dashboards for Admin and Policy Maker 
 
 ## Machine learning: collision risk model
 
-A Random Forest classifier (cost-sensitive class balancing, time-based train/test split) is trained on telemetry engineered from both nodes' distance and speed readings to predict collision risk.
+A Random Forest classifier (15 features, cost-sensitive class balancing, time-based train/test split) is trained on telemetry engineered from both nodes' distance and speed readings to predict collision risk. It has been through a full end-to-end audit (data quality, leakage, model comparison against 9 other algorithm families, cross-validation strategy, interpretability, and error analysis) — see [`docs/ml_audit/`](docs/ml_audit/) for the complete methodology and findings.
 
 ![Feature importance ranking and hold-out confusion matrix](docs/images/model_performance.png)
-*`dista` and `distb` — the raw distance readings from the two nodes — dominate feature importance, followed by `distancediff`. On a held-out set of 3,631 telemetry events the model produced a perfect confusion matrix: 3,353/3,353 correctly classified as "No Collision" and 278/278 correctly classified as "Collision".*
+*`distb` and `dista` — the raw distance readings from the two nodes — dominate feature importance, followed by `distancediff`. On a held-out set of 3,631 telemetry events the model produced a perfect confusion matrix: 3,353/3,353 correctly classified as "No Collision" and 278/278 correctly classified as "Collision".*
 
 ![ROC and Precision-Recall curves](docs/images/roc_pr_curves.png)
 *ROC-AUC and PR-AUC both reach 1.00 on the clean hold-out set.*
 
-| Scenario | Accuracy | F1 (Collision) | ROC-AUC |
-|---|---|---|---|
-| Clean hold-out test set (3,631 events) | 100% | 100% | 1.0000 |
-| Simulated real-world sensor noise (Gaussian, σ = 2.5 cm) | 99.92% | 99.46% | 0.9999 |
+| Scenario | Accuracy | F1 (Collision) | Recall | ROC-AUC |
+|---|---|---|---|---|
+| Clean hold-out test set (3,631 events) | 100% | 100% | 100% | 1.0000 |
+| Simulated real-world sensor noise (Gaussian, σ = 2.5 cm) | 99.61% | 97.45% | 96.0% | 0.9998 |
 
-The noisy-sensor scenario matters more for a real deployment: it re-evaluates the model after injecting Gaussian noise into the distance and closing-velocity features to approximate what a physical ultrasonic sensor actually reports outdoors, and the model still holds accuracy above 99.9%.
+The noisy-sensor scenario matters more for a real deployment: it re-evaluates the model after injecting Gaussian noise into the distance and speed features to approximate what a physical ultrasonic sensor actually reports outdoors. The decision threshold is deliberately tuned against this noisy simulation (not the clean lab data) so that real-world recall stays at or above the 95% safety target — missing a real collision is far costlier than an extra cautious warning.
 
 ### Training data pipeline — Snowflake-free by design
 
 The original design fed Bronze → Silver → Gold data through Snowflake before training. Since the Snowflake free trial expired (its warehouses were suspended and the Bronze/Silver/Gold tables were lost), training now rebuilds the Gold-equivalent feature table directly from the local CSV (`iot-airflow/dags/tasks/local_features.py`), reusing the *exact same* feature-engineering function (`engineer_features()` in `batch_prediction.py`) that the production scoring path uses at inference time. `fetch_gold_for_training()` in `snowflake_gold.py` automatically falls back to this local builder whenever Snowflake isn't configured or reachable — no manual steps needed to retrain.
 
-This rebuild also fixed a real train/serve skew that existed in the old Snowflake Gold SQL: it recomputed `approachingA`/`approachingB` from `speedA/speedB > 0` instead of passing through the raw Arduino sensor flag, while the production scoring path always used the raw flag. That mismatch affected **16–20% of rows** in the historical dataset. Retraining on the corrected, skew-free pipeline slightly *improved* real-world (noisy-sensor) accuracy from 99.72% to 99.92% and F1 (Collision) from 99.18% to 99.46% — confirming the fix reduces misclassification risk rather than just changing the data source.
+This rebuild also fixed a real train/serve skew that existed in the old Snowflake Gold SQL: it recomputed `approachingA`/`approachingB` from `speedA/speedB > 0` instead of passing through the raw Arduino sensor flag, while the production scoring path always used the raw flag. That mismatch affected **16–20% of rows** in the historical dataset.
+
+A follow-up audit (2026-07-16) found and fixed two further issues: (1) `speed_sum` and `closing_velocity` were exact duplicates of `avgspeed` (correlation 1.0000, zero permutation importance) and were dropped, taking the feature count from 17 to 15 with no loss of holdout performance; (2) the decision threshold was being tuned against clean lab data, which let real-world recall silently drift to 93.5% under realistic sensor noise — it's now tuned against the noisy simulation directly, recovering recall to 96%.
 
 ## Tech stack
 

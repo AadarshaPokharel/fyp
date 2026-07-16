@@ -20,7 +20,7 @@ Returns the number of orphan prediction documents deleted.
 
 import logging
 
-from tasks.config import MONGO_URI, MONGO_DB, MONGO_COLL, MONGO_PREDICTION_COLL
+from tasks.config import MONGO_DB, MONGO_COLL, MONGO_PREDICTION_COLL
 
 log = logging.getLogger(__name__)
 

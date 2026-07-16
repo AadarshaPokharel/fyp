@@ -7,32 +7,33 @@ import Spinner from "../../components/ui/Spinner";
 import { Brain, SlidersHorizontal, Zap, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 
-// ── Fix 1: All 3 presets define all 19 model features ───────────────────────
+// ── All 3 presets define all 15 model features ──────────────────────────────
+// (speed_sum, closing_velocity, vehiclea, vehicleb removed 2026-07-16 audit:
+//  the first two are exact duplicates of avgspeed; the vehicle flags were
+//  already dropped from the backend as data leakage but this form still
+//  sent them — harmless since the API ignores unknown fields, but stale.)
 const HIGH_RISK = {
   dista: 5, distb: 5, distancediff: 0, dist_ratio: 1.0,
-  speeda: 80, speedb: 80, avgspeed: 80, speed_sum: 160,
-  closing_velocity: 160, accelerationa: 5, accelerationb: 5,
+  speeda: 80, speedb: 80, avgspeed: 80,
+  accelerationa: 5, accelerationb: 5,
   accel_sum: 10, approachinga: 1, approachingb: 1,
-  vehiclea: 2, vehicleb: 2, hour_of_day: 8,
-  day_of_week: 1, is_rush_hour: 1,
+  hour_of_day: 8, day_of_week: 1, is_rush_hour: 1,
 };
 
 const MEDIUM_RISK = {
   dista: 25, distb: 25, distancediff: 5, dist_ratio: 0.8,
-  speeda: 40, speedb: 40, avgspeed: 40, speed_sum: 80,
-  closing_velocity: 60, accelerationa: 2, accelerationb: 2,
+  speeda: 40, speedb: 40, avgspeed: 40,
+  accelerationa: 2, accelerationb: 2,
   accel_sum: 4, approachinga: 1, approachingb: 0,
-  vehiclea: 1, vehicleb: 2, hour_of_day: 8,
-  day_of_week: 1, is_rush_hour: 1,
+  hour_of_day: 8, day_of_week: 1, is_rush_hour: 1,
 };
 
 const SAFE_PRESET = {
   dista: 200, distb: 200, distancediff: 0, dist_ratio: 1.0,
-  speeda: 10, speedb: 10, avgspeed: 10, speed_sum: 20,
-  closing_velocity: 0, accelerationa: 0, accelerationb: 0,
+  speeda: 10, speedb: 10, avgspeed: 10,
+  accelerationa: 0, accelerationb: 0,
   accel_sum: 0, approachinga: 0, approachingb: 0,
-  vehiclea: 1, vehicleb: 1, hour_of_day: 14,
-  day_of_week: 3, is_rush_hour: 0,
+  hour_of_day: 14, day_of_week: 3, is_rush_hour: 0,
 };
 
 const presets = {
@@ -41,17 +42,16 @@ const presets = {
   high:   HIGH_RISK,
 };
 
-// ── Fix 2: Canonical feature order matching the trained model ─────────────────
+// ── Canonical feature order matching the trained model ─────────────────────
 const FEATURE_ORDER = [
   "dista", "distb", "distancediff", "dist_ratio",
-  "speeda", "speedb", "avgspeed", "speed_sum", "closing_velocity",
+  "speeda", "speedb", "avgspeed",
   "accelerationa", "accelerationb", "accel_sum",
   "approachinga", "approachingb",
-  "vehiclea", "vehicleb",
   "hour_of_day", "day_of_week", "is_rush_hour",
 ];
 
-// Slider-visible fields (subset of 19 — the rest are sent as hidden inputs)
+// Slider-visible fields (subset of 15 — the rest are sent as hidden inputs)
 const FIELDS = [
   { key: "dista",        label: "Sensor A Distance",  unit: "cm",    min: 0,   max: 300, step: 0.1, group: "distance" },
   { key: "distb",        label: "Sensor B Distance",  unit: "cm",    min: 0,   max: 300, step: 0.1, group: "distance" },
@@ -106,7 +106,7 @@ export default function InteractivePredict() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Fix 2: Build payload with all 19 features in correct order, defaulting missing to 0
+      // Build payload with all 15 features in correct order, defaulting missing to 0
       const payload = {};
       for (const feat of FEATURE_ORDER) {
         payload[feat] = parseFloat(inputs[feat] ?? 0);
@@ -178,7 +178,7 @@ export default function InteractivePredict() {
           </div>
 
           <form onSubmit={handlePredict} className="space-y-6">
-            {/* Hidden inputs for all 19 features not shown as sliders */}
+            {/* Hidden inputs for all 15 features not shown as sliders */}
             {FEATURE_ORDER.filter(f => !FIELDS.some(sf => sf.key === f)).map(feat => (
               <input key={feat} type="hidden" name={feat} value={inputs[feat] ?? 0} readOnly />
             ))}

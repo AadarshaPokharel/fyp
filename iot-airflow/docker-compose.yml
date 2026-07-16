@@ -19,6 +19,7 @@ x-airflow-common: &airflow-common
     - ./plugins:/opt/airflow/plugins
     - ../data:/opt/airflow/data
     - ./ml:/opt/airflow/ml
+    - ./tests:/opt/airflow/tests
   depends_on:
     postgres:
       condition: service_healthy

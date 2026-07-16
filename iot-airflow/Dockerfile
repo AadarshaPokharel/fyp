@@ -16,12 +16,9 @@ RUN sed -i 's/DEFAULT@SECLEVEL=2/DEFAULT@SECLEVEL=1/' /etc/ssl/openssl.cnf 2>/de
 
 USER airflow
 
-RUN pip install --no-cache-dir \
-    "pymongo[srv]==4.7.2" \
-    "dnspython>=2.3.0" \
-    scikit-learn==1.4.2 \
-    pandas==2.2.2 \
-    numpy==1.26.4 \
-    snowflake-connector-python==3.9.1 \
-    pyserial==3.5 \
-    certifi
+# Single source of truth for dependencies — see requirements.txt.
+# (Previously this list was duplicated here AND in requirements.txt only
+#  had imbalanced-learn, with matplotlib/seaborn installed unpinned at
+#  runtime by ml_training.py — all consolidated now for reproducibility.)
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt

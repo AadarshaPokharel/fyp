@@ -1,7 +1,7 @@
 # backend/app/routes/events.py
 import time
 import random
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from app.core.auth import get_current_user
 from app.services import EventService, AuditService

@@ -31,7 +31,6 @@ def send_summary_email(summary: dict) -> str:
     gold_rows      = summary.get("gold_rows", 0)
     csv_rows       = summary.get("csv_rows", 0)
     run_at         = summary.get("run_at", "")
-    total          = gold_rows  # Gold is our source of truth
 
     if collision_rate >= 0.3:
         color, label, emoji = "#dc2626", "CRITICAL — High Collision Rate", "🚨"

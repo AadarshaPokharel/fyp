@@ -1,0 +1,266 @@
+[
+  {
+    "model": "LogisticRegression",
+    "train_time_sec": 0.025,
+    "accuracy": 0.9705,
+    "balanced_accuracy": 0.9824,
+    "precision": 0.7232,
+    "recall": 0.9964,
+    "f1": 0.8381,
+    "roc_auc": 0.9942,
+    "pr_auc": 0.9356,
+    "mcc": 0.8351,
+    "cohen_kappa": 0.8224,
+    "log_loss": 0.07499,
+    "confusion_matrix": [
+      [
+        3247,
+        106
+      ],
+      [
+        1,
+        277
+      ]
+    ]
+  },
+  {
+    "model": "GaussianNB",
+    "train_time_sec": 0.006,
+    "accuracy": 0.976,
+    "balanced_accuracy": 0.9705,
+    "precision": 0.7768,
+    "recall": 0.964,
+    "f1": 0.8604,
+    "roc_auc": 0.9911,
+    "pr_auc": 0.8888,
+    "mcc": 0.8533,
+    "cohen_kappa": 0.8474,
+    "log_loss": 0.57654,
+    "confusion_matrix": [
+      [
+        3276,
+        77
+      ],
+      [
+        10,
+        268
+      ]
+    ]
+  },
+  {
+    "model": "KNN(k=15)",
+    "train_time_sec": 0.003,
+    "accuracy": 0.9843,
+    "balanced_accuracy": 0.942,
+    "precision": 0.9018,
+    "recall": 0.8921,
+    "f1": 0.8969,
+    "roc_auc": 0.9967,
+    "pr_auc": 0.9377,
+    "mcc": 0.8884,
+    "cohen_kappa": 0.8884,
+    "log_loss": 0.1238,
+    "confusion_matrix": [
+      [
+        3326,
+        27
+      ],
+      [
+        30,
+        248
+      ]
+    ]
+  },
+  {
+    "model": "SVM(RBF)",
+    "train_time_sec": 1.452,
+    "accuracy": 0.9678,
+    "balanced_accuracy": 0.9826,
+    "precision": 0.7038,
+    "recall": 1.0,
+    "f1": 0.8262,
+    "roc_auc": 0.9977,
+    "pr_auc": 0.9757,
+    "mcc": 0.8242,
+    "cohen_kappa": 0.809,
+    "log_loss": 0.04557,
+    "confusion_matrix": [
+      [
+        3236,
+        117
+      ],
+      [
+        0,
+        278
+      ]
+    ]
+  },
+  {
+    "model": "MLP(NeuralNet 64-32)",
+    "train_time_sec": 2.443,
+    "accuracy": 0.9854,
+    "balanced_accuracy": 0.9377,
+    "precision": 0.9245,
+    "recall": 0.8813,
+    "f1": 0.9024,
+    "roc_auc": 0.9981,
+    "pr_auc": 0.9788,
+    "mcc": 0.8948,
+    "cohen_kappa": 0.8945,
+    "log_loss": 0.03093,
+    "confusion_matrix": [
+      [
+        3333,
+        20
+      ],
+      [
+        33,
+        245
+      ]
+    ]
+  },
+  {
+    "model": "RandomForest(current-prod-style)",
+    "train_time_sec": 0.504,
+    "accuracy": 0.9997,
+    "balanced_accuracy": 0.9982,
+    "precision": 1.0,
+    "recall": 0.9964,
+    "f1": 0.9982,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "mcc": 0.9981,
+    "cohen_kappa": 0.998,
+    "log_loss": 0.00293,
+    "confusion_matrix": [
+      [
+        3353,
+        0
+      ],
+      [
+        1,
+        277
+      ]
+    ]
+  },
+  {
+    "model": "ExtraTrees",
+    "train_time_sec": 0.341,
+    "accuracy": 0.9917,
+    "balanced_accuracy": 0.9939,
+    "precision": 0.9052,
+    "recall": 0.9964,
+    "f1": 0.9486,
+    "roc_auc": 0.9999,
+    "pr_auc": 0.9989,
+    "mcc": 0.9454,
+    "cohen_kappa": 0.9441,
+    "log_loss": 0.02884,
+    "confusion_matrix": [
+      [
+        3324,
+        29
+      ],
+      [
+        1,
+        277
+      ]
+    ]
+  },
+  {
+    "model": "GradientBoosting",
+    "train_time_sec": 3.958,
+    "accuracy": 1.0,
+    "balanced_accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "mcc": 1.0,
+    "cohen_kappa": 1.0,
+    "log_loss": 1e-05,
+    "confusion_matrix": [
+      [
+        3353,
+        0
+      ],
+      [
+        0,
+        278
+      ]
+    ]
+  },
+  {
+    "model": "XGBoost",
+    "train_time_sec": 0.124,
+    "accuracy": 1.0,
+    "balanced_accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "mcc": 1.0,
+    "cohen_kappa": 1.0,
+    "log_loss": 9e-05,
+    "confusion_matrix": [
+      [
+        3353,
+        0
+      ],
+      [
+        0,
+        278
+      ]
+    ]
+  },
+  {
+    "model": "LightGBM",
+    "train_time_sec": 0.344,
+    "accuracy": 0.9992,
+    "balanced_accuracy": 0.9979,
+    "precision": 0.9928,
+    "recall": 0.9964,
+    "f1": 0.9946,
+    "roc_auc": 1.0,
+    "pr_auc": 0.9999,
+    "mcc": 0.9942,
+    "cohen_kappa": 0.9942,
+    "log_loss": 0.00854,
+    "confusion_matrix": [
+      [
+        3351,
+        2
+      ],
+      [
+        1,
+        277
+      ]
+    ]
+  },
+  {
+    "model": "RandomForest(DEDUP-features, 15 not 17)",
+    "train_time_sec": 0.496,
+    "accuracy": 1.0,
+    "balanced_accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "roc_auc": 1.0,
+    "pr_auc": 1.0,
+    "mcc": 1.0,
+    "cohen_kappa": 1.0,
+    "log_loss": 0.00488,
+    "confusion_matrix": [
+      [
+        3353,
+        0
+      ],
+      [
+        0,
+        278
+      ]
+    ]
+  }
+]

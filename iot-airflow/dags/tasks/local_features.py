@@ -44,7 +44,7 @@ def fetch_gold_from_csv(csv_path: str = None) -> list:
 
     # ── Silver-layer cleaning rules (mirrors snowflake_silver.py) ────────────
     df["wall_time"] = pd.to_datetime(df["wall_time"], errors="coerce")
-    now = pd.Timestamp.utcnow().tz_localize(None)
+    now = pd.Timestamp.now(tz="UTC").tz_localize(None)
     df = df[
         df["distA"].notna() & (df["distA"] > 0) & (df["distA"] <= 400) &
         df["distB"].notna() & (df["distB"] > 0) & (df["distB"] <= 400) &

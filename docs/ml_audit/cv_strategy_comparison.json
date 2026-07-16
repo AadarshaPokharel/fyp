@@ -1,0 +1,35 @@
+{
+  "KFold(shuffle=True) - WRONG for time series": {
+    "mean_f1_macro": 0.9941,
+    "std": 0.0027,
+    "folds": [
+      0.9963,
+      0.9888,
+      0.995,
+      0.9956,
+      0.9947
+    ]
+  },
+  "StratifiedKFold(shuffle=True) - WRONG for time series": {
+    "mean_f1_macro": 0.9941,
+    "std": 0.0023,
+    "folds": [
+      0.9951,
+      0.9903,
+      0.9963,
+      0.9927,
+      0.9963
+    ]
+  },
+  "TimeSeriesSplit (production choice) - CORRECT": {
+    "mean_f1_macro": 0.9987,
+    "std": 0.0022,
+    "folds": [
+      0.9943,
+      1.0,
+      1.0,
+      0.9994,
+      1.0
+    ]
+  }
+}

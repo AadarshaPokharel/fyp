@@ -1,16 +1,15 @@
 # backend/app/routes/predict.py
 """
 Interactive prediction endpoint.
-Accepts raw sensor values (all 19 training features), loads the sklearn model
+Accepts raw sensor values (all 15 training features), loads the sklearn model
 from MODEL_PATH, and returns collision_probability + risk_level.
 Falls back to a rule-based mock if MODEL_PATH is not set or model fails to load.
 """
 import logging
 import os
 import numpy as np
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user
@@ -22,9 +21,12 @@ predict_router = APIRouter()
 # ── Fix 2: Canonical feature order must match ml_training.py FEATURES list ────
 # Canonical feature order — must stay in sync with ml_training.py FEATURES.
 # vehiclea / vehicleb REMOVED: dataset leakage (only type-1 vehicles collide).
+# speed_sum / closing_velocity REMOVED (2026-07-16 audit): both are exact
+# duplicates of avgspeed (correlation 1.0000, permutation importance ~0) —
+# see ml_training.py FEATURES for the full explanation.
 FEATURE_ORDER = [
     "dista", "distb", "distancediff", "dist_ratio",
-    "speeda", "speedb", "avgspeed", "speed_sum", "closing_velocity",
+    "speeda", "speedb", "avgspeed",
     "accelerationa", "accelerationb", "accel_sum",
     "approachinga", "approachingb",
     "hour_of_day", "day_of_week", "is_rush_hour",
@@ -79,7 +81,7 @@ def _load_model():
         return None
 
 
-# ── Request schema — all 19 model features ────────────────────────────────────
+# ── Request schema — all 17 model features ────────────────────────────────────
 
 class PredictRequest(BaseModel):
     # Distance features
@@ -92,8 +94,8 @@ class PredictRequest(BaseModel):
     speeda:          float = Field(0.0, ge=0)
     speedb:          float = Field(0.0, ge=0)
     avgspeed:        float = Field(0.0, ge=0)
-    speed_sum:       float = Field(0.0, ge=0)
-    closing_velocity: float = Field(0.0)
+
+    # speed_sum / closing_velocity REMOVED — exact duplicates of avgspeed.
 
     # Acceleration features
     accelerationa:   float = Field(0.0)
@@ -115,8 +117,8 @@ class PredictRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "dista": 5, "distb": 5, "distancediff": 0, "dist_ratio": 1.0,
-                "speeda": 80, "speedb": 80, "avgspeed": 80, "speed_sum": 160,
-                "closing_velocity": 160, "accelerationa": 5, "accelerationb": 5,
+                "speeda": 80, "speedb": 80, "avgspeed": 80,
+                "accelerationa": 5, "accelerationb": 5,
                 "accel_sum": 10, "approachinga": 1, "approachingb": 1,
                 "hour_of_day": 8, "day_of_week": 1, "is_rush_hour": 1,
             }

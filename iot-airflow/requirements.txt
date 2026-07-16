@@ -1,1 +1,19 @@
 imbalanced-learn>=0.12.0
+
+# ── Moved here from Dockerfile inline pip install (single source of truth) ──
+pymongo[srv]==4.7.2
+dnspython>=2.3.0
+scikit-learn==1.4.2
+pandas==2.2.2
+numpy==1.26.4
+snowflake-connector-python==3.9.1
+pyserial==3.5
+certifi
+
+# ── Moved here from ml_training.py runtime pip install (was unpinned and
+#    installed over the network during every training run) ──
+matplotlib==3.9.0
+seaborn==0.13.2
+
+# ── Testing ──────────────────────────────────────────────────────────────
+pytest==8.3.3
