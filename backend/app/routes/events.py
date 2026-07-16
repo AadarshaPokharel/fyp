@@ -32,7 +32,7 @@ async def get_events(
 async def get_system_resilience(current_user: dict = Depends(get_current_user)):
     """Dynamic system resilience metrics: real DB latency, network health, auto-correction status."""
     from app.db.connection import get_database
-    db = get_database()
+    db = await get_database()
     start_time = time.time()
     try:
         await db.command("ping")
