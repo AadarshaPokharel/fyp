@@ -1,0 +1,42 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# Local environment variables
+.env
+.env.*
+*.env
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+
+# Log files
+*.log
+
+# Package build artifacts
+build/
+dist/
+*.egg-info/
+
+# Coverage reports
+htmlcov/
+.coverage
+
+# Downloaded data and runtime storage
+storage/downloads/
+
+# Local certificate files
+DigiCertGlobalRootCA.crt

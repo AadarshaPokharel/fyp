@@ -1,0 +1,29 @@
+# ── Secrets — NEVER commit ──────────────────────
+.env
+*.env
+
+# ── User uploaded documents (PII) — NEVER commit ─
+backend/uploads/
+
+# ── Data files ──────────────────────────────────
+data/
+*.csv
+
+# ── Trained model ───────────────────────────────
+ml/
+*.pkl
+
+# ── Python ──────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# ── Airflow ──────────────────────────────────────
+iot-airflow/logs/
+iot-airflow/plugins/
+
+# ── IDE ──────────────────────────────────────────
+.vscode/
+.idea/
