@@ -46,15 +46,22 @@ USING (
         CASE WHEN vehicleB = TRUE THEN 1 ELSE 0 END  AS vehicleB,
         distanceDiff, speedA, speedB, avgSpeed,
         accelerationA, accelerationB,
-        CASE WHEN speedA > 0 THEN 1 ELSE 0 END       AS approachingA,
-        CASE WHEN speedB > 0 THEN 1 ELSE 0 END       AS approachingB,
+        -- NOTE: pass through the raw Arduino approaching flag rather than
+        -- re-deriving it from speedA/speedB > 0. batch_prediction.py (the
+        -- real production scoring path) always uses the raw flag, so
+        -- re-deriving it here caused ~16-20% train/serve feature skew.
+        CASE WHEN approachingA = TRUE THEN 1 ELSE 0 END AS approachingA,
+        CASE WHEN approachingB = TRUE THEN 1 ELSE 0 END AS approachingB,
         CASE WHEN distB > 0 THEN distA / (distB + 0.000001) ELSE 0 END AS dist_ratio,
         CASE WHEN distA < 20 AND distB < 20 THEN 1 ELSE 0 END          AS both_close,
         speedA + speedB                               AS speed_sum,
         accelerationA + accelerationB                 AS accel_sum,
         CASE WHEN speedA > 0 AND speedB > 0 THEN 1 ELSE 0 END          AS both_approaching,
         HOUR(wall_time)                               AS hour_of_day,
-        DAYOFWEEK(wall_time)                          AS day_of_week,
+        -- Snowflake DAYOFWEEK is Sunday=0..Saturday=6; pandas dt.dayofweek
+        -- (used at serving time in batch_prediction.py) is Monday=0..Sunday=6.
+        -- Convert to the same convention to avoid a second skew source.
+        MOD(DAYOFWEEK(wall_time) + 6, 7)              AS day_of_week,
         CASE WHEN HOUR(wall_time) BETWEEN 7 AND 9
               OR  HOUR(wall_time) BETWEEN 17 AND 19
              THEN 1 ELSE 0 END                        AS is_rush_hour,
@@ -105,51 +112,60 @@ def load_gold(silver_rows: int) -> int:
         conn.close()
 
 
+def _fetch_gold_for_training_local_fallback() -> list:
+    from tasks.local_features import fetch_gold_from_csv
+    return fetch_gold_from_csv()
+
+
 def fetch_gold_for_training() -> list:
     if not snowflake_configured():
-        log.warning("Snowflake not configured — returning empty.")
-        return []
+        log.warning("Snowflake not configured — building training data locally from CSV instead.")
+        return _fetch_gold_for_training_local_fallback()
 
-    conn   = get_snowflake_conn()
-    cursor = conn.cursor()
     try:
-        # Columns aligned with the leakage-safe FEATURES list in ml_training.py.
-        # Removed: BOTH_CLOSE (label proxy, r=0.76), BOTH_APPROACHING (train/serve skew),
-        #          RISK_LEVEL (perfect label proxy — 100% predictive of IS_COLLISION_EVENT).
-        # Added:   IS_COLLISION_EVENT (new binary target), DAY_OF_WEEK, IS_RUSH_HOUR,
-        #          CLOSING_VELOCITY.
-        # Fixed:   HOUR_OF_DAY aliased as 'hour_of_day' (was 'hour') to match Gold schema.
-        cursor.execute("""
-            SELECT
-                wall_time,
-                DISTA               AS dista,
-                DISTB               AS distb,
-                DISTANCEDIFF        AS distancediff,
-                SPEEDA              AS speeda,
-                SPEEDB              AS speedb,
-                AVGSPEED            AS avgspeed,
-                APPROACHINGA        AS approachinga,
-                APPROACHINGB        AS approachingb,
-                ACCELERATIONA       AS accelerationa,
-                ACCELERATIONB       AS accelerationb,
-                VEHICLEA            AS vehiclea,
-                VEHICLEB            AS vehicleb,
-                DIST_RATIO          AS dist_ratio,
-                SPEED_SUM           AS speed_sum,
-                ACCEL_SUM           AS accel_sum,
-                CLOSING_VELOCITY    AS closing_velocity,
-                HOUR_OF_DAY         AS hour_of_day,
-                DAY_OF_WEEK         AS day_of_week,
-                IS_RUSH_HOUR        AS is_rush_hour,
-                IS_COLLISION_EVENT  AS is_collision_event
-            FROM IOT_GOLD.ML_FEATURES
-            ORDER BY wall_time DESC
-            LIMIT 100000
-        """)
-        cols = [d[0].lower() for d in cursor.description]
-        rows = [dict(zip(cols, row)) for row in cursor.fetchall()]
-        log.info(f"Fetched {len(rows)} Gold rows for ML training.")
-        return rows
-    finally:
-        cursor.close()
-        conn.close()
+        conn   = get_snowflake_conn()
+        cursor = conn.cursor()
+        try:
+            # Columns aligned with the leakage-safe FEATURES list in ml_training.py.
+            # Removed: BOTH_CLOSE (label proxy, r=0.76), BOTH_APPROACHING (train/serve skew),
+            #          RISK_LEVEL (perfect label proxy — 100% predictive of IS_COLLISION_EVENT).
+            # Added:   IS_COLLISION_EVENT (new binary target), DAY_OF_WEEK, IS_RUSH_HOUR,
+            #          CLOSING_VELOCITY.
+            # Fixed:   HOUR_OF_DAY aliased as 'hour_of_day' (was 'hour') to match Gold schema.
+            cursor.execute("""
+                SELECT
+                    wall_time,
+                    DISTA               AS dista,
+                    DISTB               AS distb,
+                    DISTANCEDIFF        AS distancediff,
+                    SPEEDA              AS speeda,
+                    SPEEDB              AS speedb,
+                    AVGSPEED            AS avgspeed,
+                    APPROACHINGA        AS approachinga,
+                    APPROACHINGB        AS approachingb,
+                    ACCELERATIONA       AS accelerationa,
+                    ACCELERATIONB       AS accelerationb,
+                    VEHICLEA            AS vehiclea,
+                    VEHICLEB            AS vehicleb,
+                    DIST_RATIO          AS dist_ratio,
+                    SPEED_SUM           AS speed_sum,
+                    ACCEL_SUM           AS accel_sum,
+                    CLOSING_VELOCITY    AS closing_velocity,
+                    HOUR_OF_DAY         AS hour_of_day,
+                    DAY_OF_WEEK         AS day_of_week,
+                    IS_RUSH_HOUR        AS is_rush_hour,
+                    IS_COLLISION_EVENT  AS is_collision_event
+                FROM IOT_GOLD.ML_FEATURES
+                ORDER BY wall_time DESC
+                LIMIT 100000
+            """)
+            cols = [d[0].lower() for d in cursor.description]
+            rows = [dict(zip(cols, row)) for row in cursor.fetchall()]
+            log.info(f"Fetched {len(rows)} Gold rows for ML training.")
+            return rows
+        finally:
+            cursor.close()
+            conn.close()
+    except Exception as exc:
+        log.error(f"Snowflake query failed ({exc}) — building training data locally from CSV instead.")
+        return _fetch_gold_for_training_local_fallback()
