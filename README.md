@@ -1,16 +1,106 @@
-# FYP - IoT Collision Prediction Platform
+# IoT-Based Blind Curve Collision Detection System
 
-This repository contains a full-stack IoT collision-risk platform with data ingestion, ML training, API services, and a web dashboard.
+A full-stack IoT collision-risk platform: two roadside Arduino nodes detect vehicles approaching a blind curve and trigger real-time visual/auditory warnings, while a FastAPI + React platform ingests the telemetry, predicts collision risk with a trained Random Forest model, and gives Admins and Policy Makers dashboards to monitor, review, and govern road-safety policy.
 
-## Project Folders
+Final Year Project — B.Sc. Computer Science and Information Technology, Tribhuvan University, Kathford International College of Engineering and Management.
 
-- `backend/` - FastAPI backend, auth, dashboards APIs, prediction APIs.
-- `frontend/` - React app for admin and policy maker workflows.
-- `iot-airflow/` - Airflow DAGs for batch processing and ML training.
-- `iot-pipeline/` - Local/live ingestion scripts from serial/CSV to MongoDB.
-- `data/` - Local datasets used for testing and analysis.
+**Authors:** Aadarsha Pokharel, Ayush Subedi, Rojina Shrestha · **Supervisor:** Mr. Nabin Karki
 
-## Run everything at once (recommended)
+---
+
+## The problem
+
+Blind curves obstruct a driver's line of sight, making head-on collisions with oncoming vehicles a serious road-safety hazard. Traffic signs and convex mirrors are passive — they depend entirely on human visual perception and reaction time, which are easily compromised by poor visibility, weather, or distraction. This project replaces that passive approach with an active, automated, low-cost early-warning system.
+
+## How it works
+
+Two roadside nodes sit at opposite ends of a blind curve, each with an Arduino, an HC-SR04 ultrasonic sensor, a red/green LED pair, and a buzzer. When a vehicle is detected within the threshold distance at one node, a signal is sent to the opposite node, which switches on its red LED and buzzer to warn the oncoming driver. If vehicles are detected at both ends at once, both nodes go to a high-alert state.
+
+![Conceptual framework of the two-node IoT system](hardware/images/conceptual_framework.png)
+*System overview: each node subsystem (red/green LED, buzzer, ultrasonic sensor) feeds shared control logic over inter-node communication. Vehicle detection at either node drives the system into the correct SAFE / MEDIUM / HIGH alert state.*
+
+| Rule-based state | Trigger | Output |
+|---|---|---|
+| **SAFE** | No vehicle detected at either node | Green LEDs at both nodes |
+| **MEDIUM** | Vehicle detected at one node | Red LED + buzzer at the *opposite* node |
+| **HIGH** | Vehicles detected at both nodes simultaneously | Red LEDs + buzzers at both nodes |
+
+### Hardware prototype in action
+
+| No vehicle detected (SAFE) | Vehicle at one end (MEDIUM) | Vehicles at both ends (HIGH) |
+|---|---|---|
+| ![No vehicle detected, both sides safe](hardware/images/IOT_device.jpeg) | ![Vehicle detected at one node, opposite red LED and buzzer active](hardware/images/red1.jpeg) | ![Vehicles detected at both nodes, both red LEDs and buzzers active](hardware/images/bothRed.jpeg) |
+| Both nodes hold steady green — the curve is clear. | One node has flagged a vehicle; the opposite node's red LED + buzzer warn the approaching driver. | Both nodes detect vehicles at the same time — red LEDs and buzzers fire on both ends. |
+
+### Circuit design
+
+![Circuit schematic of one IoT node](docs/images/circuit_diagram.png)
+*Each node wires an Arduino UNO to two HC-SR04 ultrasonic sensors, red/green LEDs, and a buzzer; the two nodes are cross-connected so a detection on one triggers the actuators on the other.*
+
+---
+
+## System architecture
+
+```
+Arduino nodes (HC-SR04, LEDs, buzzer)
+        │  serial / CSV
+        ▼
+iot-pipeline/        ── live or CSV ingestion → MongoDB
+        │
+        ▼
+iot-airflow/          ── Airflow DAGs: MongoDB → Snowflake (Bronze → Silver → Gold)
+        │                also trains/retrains the Random Forest risk model on a schedule
+        ▼
+backend/              ── FastAPI: auth (JWT + Bcrypt), events, predictions, policy
+        │                governance, CSV export, audit logging
+        ▼
+frontend/             ── React + Vite dashboards for Admin and Policy Maker roles
+```
+
+- **Retraining:** an Airflow DAG checks every 5 minutes and retrains the model only once at least `MIN_NEW_ROWS_RETRAIN` new telemetry rows have arrived since the last run.
+- **Graceful degradation:** if the trained model bundle isn't available, the backend automatically falls back to the deterministic rule-based SAFE/MEDIUM/HIGH logic above, so the platform never goes fully dark.
+- **Role-based access:** Admins get platform oversight (user management, audit trail, policy review, CSV export approval); Policy Makers get live monitoring, collision analysis, interactive prediction, and policy drafting.
+
+## Machine learning: collision risk model
+
+A Random Forest classifier (200 trees, cost-sensitive class balancing) is trained on telemetry engineered from both nodes' distance and speed readings to predict SAFE / MEDIUM / HIGH collision risk.
+
+![Feature importance ranking and hold-out confusion matrix](docs/images/model_performance.png)
+*`dista` and `distb` — the raw distance readings from the two nodes — dominate feature importance, followed by `distancediff`. On a held-out set of 3,168 telemetry events the model produced a perfect confusion matrix: 2,616/2,616 correctly classified as "No Collision" and 552/552 correctly classified as "Collision".*
+
+![ROC and Precision-Recall curves](docs/images/roc_pr_curves.png)
+*ROC-AUC and PR-AUC both reach 1.00 on the clean hold-out set.*
+
+| Scenario | Accuracy | F1 (Collision) | ROC-AUC |
+|---|---|---|---|
+| Clean hold-out test set (3,168 events) | 100% | 100% | 1.0000 |
+| Simulated real-world sensor noise (Gaussian, σ = 2.5 cm) | 99.72% | 99.18% | 0.9998 |
+
+The noisy-sensor scenario matters more for a real deployment: it re-evaluates the model after injecting Gaussian noise into the distance and closing-velocity features to approximate what a physical ultrasonic sensor actually reports outdoors, and the model still holds accuracy above 99.7%.
+
+## Tech stack
+
+- **Hardware:** Arduino, HC-SR04 ultrasonic sensors, LEDs, buzzers
+- **Backend:** FastAPI, Motor (async MongoDB), scikit-learn, JWT + Bcrypt auth, Cloudinary storage
+- **Frontend:** React 18 + Vite, Recharts
+- **Data pipeline:** Apache Airflow + PostgreSQL (DAG orchestration), MongoDB (hot telemetry storage), Snowflake (Bronze/Silver/Gold medallion warehouse)
+- **ML:** scikit-learn Random Forest, feature engineering + median imputation, scheduled retraining
+- **Deployment:** Docker Compose
+
+## Project folders
+
+- `backend/` — FastAPI backend: auth, dashboard APIs, prediction APIs, policy governance, CSV export, audit logging.
+- `frontend/` — React app for Admin and Policy Maker workflows.
+- `iot-airflow/` — Airflow DAGs for telemetry ingestion, Snowflake medallion processing, and ML training/retraining.
+- `iot-pipeline/` — Local/live ingestion scripts from serial (Arduino) or CSV into MongoDB.
+- `hardware/` — Circuit reference images and hardware prototype photos.
+- `docs/` — Supporting documentation, diagrams, and report material (see below).
+- `data/` — Local datasets used for testing and analysis.
+- `scripts/` — Convenience scripts (`run-all.sh`) to bring the whole stack up in one terminal.
+
+## Getting started
+
+### Run everything at once (recommended)
 
 From the project root, one terminal:
 
@@ -43,9 +133,7 @@ That tries to free ports `8000` and `5173` before starting. You can also run `ss
   RUN_PIPELINE=1 SERIAL_PORT=/dev/ttyACM1 ./scripts/run-all.sh
   ```
 
----
-
-## Quick Start (manual, separate terminals)
+### Quick start (manual, separate terminals)
 
 1. Start backend:
    - `cd backend`
@@ -63,6 +151,10 @@ That tries to free ports `8000` and `5173` before starting. You can also run `ss
    - Frontend: `http://127.0.0.1:5173`
    - API docs: `http://127.0.0.1:8000/docs`
 
+### Environment variables
+
+Copy `.env.example` to `.env` and fill in your own values — MongoDB Atlas connection string, Snowflake credentials, email notification settings, model/CSV paths, serial port, and a secret key for JWT signing. **Never commit `.env`** — it's already covered by `.gitignore`.
+
 ## Notes
 
 - Keep backend `.env` configured (`MONGO_URI`, `MONGO_DB`, `SECRET_KEY`, `MODEL_PATH`).
@@ -74,3 +166,11 @@ That tries to free ports `8000` and `5173` before starting. You can also run `ss
 For a report-ready explanation of **why** this platform exists, **where** it can deploy, how the **HC-SR04 + LEDs + buzzers** breadboard prototype supports a successful demo, **firmware logic** in words (no embedded source), and **future product** refinement, see:
 
 - [`docs/PROTOTYPE_AND_PRODUCT.md`](docs/PROTOTYPE_AND_PRODUCT.md)
+
+## Future work
+
+- Real-world field testing on actual blind curves under varied weather and traffic conditions
+- Replace wired inter-node signaling with LoRaWAN or cellular wireless communication
+- Upgrade sensing with radar (AWR1834) or LIDAR, with a Raspberry Pi 4 for edge processing
+- Explore Edge AI, TinyML, and RNN/LSTM models for faster, more accurate real-time prediction
+- Scale to multi-node, multi-administrator deployment across rural and hilly road networks
