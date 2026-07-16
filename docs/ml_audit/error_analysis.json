@@ -11,7 +11,7 @@
     "pr_auc": 1.0,
     "mcc": 1.0,
     "cohen_kappa": 1.0,
-    "log_loss": 0.007976473858948929,
+    "log_loss": 0.007976473858948934,
     "confusion_matrix": {
       "tn": 3353,
       "fp": 0,
