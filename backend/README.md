@@ -13,9 +13,17 @@ Backend API for authentication, user management, event analytics, downloads, and
 
 ## Run
 
+Native (venv):
+
 ```bash
 # cd /home/aadarsha/fyp/backend
 ./venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Or via Docker, from the project root (also starts frontend + Airflow together — see the top-level `README.md`):
+
+```bash
+docker compose up -d backend
 ```
 
 ## API Docs

@@ -86,6 +86,10 @@ This rebuild also fixed a real train/serve skew that existed in the old Snowflak
 
 A follow-up audit (2026-07-16) found and fixed three further issues: (1) `speed_sum` and `closing_velocity` were exact duplicates of `avgspeed` (correlation 1.0000, zero permutation importance) and were dropped, taking the feature count from 17 to 15 with no loss of holdout performance; (2) the decision threshold was being tuned against clean lab data, which let real-world recall silently drift to 93.5% under realistic sensor noise; (3) even after fixing that, the threshold-selection rule itself ("best precision subject to recall ≥ 0.95") left false negatives (11) outnumbering false positives (3) — the wrong direction of error for a safety warning system. The threshold is now chosen by directly maximizing F2 (recall weighted over precision) against the noisy simulation, which recovered recall to 99.6% and flipped the error skew to 4 false positives vs. 1 false negative.
 
+### Is the near-100% accuracy trustworthy?
+
+A dedicated investigation ([`docs/ml_audit/TRUSTWORTHINESS_INVESTIGATION.md`](docs/ml_audit/TRUSTWORTHINESS_INVESTIGATION.md)) assumed the result was suspicious until proven otherwise. It found one real methodological flaw — the chronological train/test split cuts through a single ~5-minute recording session that holds 45% of all collision examples in the dataset — but **Leave-One-Session-Out cross-validation** (training on 21 of the 22 recording sessions and testing on the one held out completely, repeated for every session) still produced 99.67% mean accuracy and 99.5% mean recall, showing the flaw doesn't explain the result. Adversarial validation, robustness stress testing (Gaussian noise, missing values, corrupted sensors, unit-conversion errors), and full calibration analysis (ECE 0.0139, Brier 0.00367) are also documented there, along with two real field-deployment risks it surfaced: no fallback behavior for a dead distance sensor, and no input-plausibility validation against unit-conversion mistakes.
+
 ## Tech stack
 
 - **Hardware:** Arduino, HC-SR04 ultrasonic sensors, LEDs, buzzers

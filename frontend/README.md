@@ -14,9 +14,17 @@ UI for the IoT Collision Prediction platform.
 
 ## Run
 
+Native:
+
 ```bash
 npm install
 npm run dev
+```
+
+Or via Docker, from the project root (also starts backend + Airflow together — see the top-level `README.md`):
+
+```bash
+docker compose up -d frontend
 ```
 
 ## Build
