@@ -11,7 +11,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-AIRFLOW_COMPOSE="$ROOT/iot-airflow/docker-compose.yml"
+AIRFLOW_COMPOSE="$ROOT/docker-compose.yml"
 
 BACKEND_PID=""
 FRONTEND_PID=""
@@ -90,9 +90,12 @@ for need_port in 8000 5173; do
   fi
 done
 
-# --- Docker: Airflow + Postgres (no USB serial service — avoids missing /dev/ttyACM0) ---
-echo "[run-all] Starting iot-airflow (Docker)..."
-docker compose -f "$AIRFLOW_COMPOSE" up -d
+# --- Docker: Airflow + Postgres only (backend/frontend run natively below —
+#     this script deliberately does NOT run `docker compose up -d` bare,
+#     since the root compose file also defines backend/frontend containers
+#     that would collide with the native processes started below) ---
+echo "[run-all] Starting Airflow + Postgres (Docker)..."
+docker compose -f "$AIRFLOW_COMPOSE" up -d postgres airflow-init airflow-webserver airflow-scheduler
 
 echo "[run-all] Waiting for services to settle (8s)..."
 sleep 8

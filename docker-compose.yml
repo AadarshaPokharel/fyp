@@ -1,0 +1,131 @@
+# Unified compose file for the whole stack: Airflow (+Postgres), backend, frontend.
+#
+# `docker compose up -d` brings up: postgres, airflow-init, airflow-webserver,
+# airflow-scheduler, backend, frontend.
+#
+# Deliberately NOT included by default:
+#   - iot-pipeline/ (live Arduino ingestion) — run manually, see iot-pipeline/README.md
+#   - serial-logger (the in-repo alternative to iot-pipeline) — profile-gated,
+#     only starts with `docker compose --profile serial up -d`
+#
+# Ports: frontend 5173, backend 8000, Airflow UI 8080.
+
+x-airflow-common: &airflow-common
+  build: ./iot-airflow
+  env_file:
+    - ./.env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    CSV_PATH: /opt/airflow/data/events.csv
+  volumes:
+    - ./iot-airflow/dags:/opt/airflow/dags
+    - ./iot-airflow/logs:/opt/airflow/logs
+    - ./iot-airflow/plugins:/opt/airflow/plugins
+    - ./data:/opt/airflow/data
+    - ./iot-airflow/ml:/opt/airflow/ml
+    - ./iot-airflow/tests:/opt/airflow/tests
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        pip install -q "pymongo[srv]" scikit-learn pandas snowflake-connector-python
+        airflow db migrate
+        airflow users create \
+          --username admin --password admin \
+          --firstname Admin --lastname User \
+          --role Admin --email admin@example.com
+    restart: on-failure
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      retries: 5
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  # Optional: only when Arduino is connected (creates /dev/ttyACM0).
+  # Default: docker compose up -d  → skips this service (no device error).
+  # With USB: docker compose --profile serial up -d
+  serial-logger:
+    profiles:
+      - serial
+    image: python:3.11-slim
+    volumes:
+      - ./data:/data
+      - ./iot-airflow/serial_to_csv.py:/app/serial_to_csv.py
+    devices:
+      - "/dev/ttyACM0:/dev/ttyACM0"
+    working_dir: /app
+    command: >
+      bash -c "pip install pyserial -q &&
+               python serial_to_csv.py --port /dev/ttyACM0 --out /data/events.csv --quiet"
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # Absolute container path — overrides the host-relative default in
+      # backend/.env (../iot-airflow/ml/model.pkl) so it resolves correctly
+      # regardless of the container's working directory.
+      MODEL_PATH: /app/ml-artifacts/model.pkl
+    volumes:
+      - ./backend:/app
+      - ./iot-airflow/ml:/app/ml-artifacts:ro
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

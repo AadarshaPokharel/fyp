@@ -108,7 +108,33 @@ A follow-up audit (2026-07-16) found and fixed three further issues: (1) `speed_
 
 ## Getting started
 
-### Run everything at once (recommended)
+### Option A — Docker Compose (everything containerized)
+
+From the project root, one command:
+
+```bash
+docker compose up -d
+```
+
+This builds and starts **frontend, backend, and Airflow + Postgres** together:
+
+- Frontend: `http://127.0.0.1:5173`
+- Backend API: `http://127.0.0.1:8000/docs`
+- Airflow UI: `http://127.0.0.1:8080`
+
+Both `backend` and `frontend` bind-mount their source directories, so code edits hot-reload the same as running them natively (`uvicorn --reload`, Vite HMR).
+
+**Deliberately excluded by default:** the live Arduino serial ingestion (`serial-logger`, the in-repo equivalent of `iot-pipeline/`) is profile-gated — it needs a real `/dev/ttyACM0` device, which isn't available in a typical dev environment. Start it explicitly only when a board is actually plugged in:
+
+```bash
+docker compose --profile serial up -d
+```
+
+`iot-pipeline/` itself (the standalone Python ingestion scripts) is never part of `docker compose up -d` — run it manually per `iot-pipeline/README.md` if you need it.
+
+Stop everything: `docker compose down`.
+
+### Option B — Native hybrid (run-all.sh)
 
 From the project root, one terminal:
 
@@ -118,13 +144,13 @@ From the project root, one terminal:
 
 This starts:
 
-- **Docker**: Airflow + Postgres (`iot-airflow/docker-compose.yml`) — no USB serial container (avoids missing `/dev/ttyACM0`).
-- **Backend**: FastAPI on `http://127.0.0.1:8000`
-- **Frontend**: Vite on `http://127.0.0.1:5173`
+- **Docker**: Airflow + Postgres only (via the same root `docker-compose.yml`, but scoped to just those services — backend/frontend run natively below instead, to avoid port collisions with their containerized counterparts).
+- **Backend**: FastAPI on `http://127.0.0.1:8000` (native, `backend/venv`)
+- **Frontend**: Vite on `http://127.0.0.1:5173` (native, `npm run dev`)
 
 **Prerequisites:** Docker running, `backend/venv` installed, `frontend` has `npm install` done.
 
-**Stop:** `Ctrl+C` stops backend + frontend and runs `docker compose down` for `iot-airflow`.
+**Stop:** `Ctrl+C` stops backend + frontend and runs `docker compose down` for the Airflow/Postgres services.
 
 **Port 8000 already in use:** Another `uvicorn` (or old run) is still bound. Either stop it, or start everything with:
 
@@ -141,20 +167,18 @@ That tries to free ports `8000` and `5173` before starting. You can also run `ss
   RUN_PIPELINE=1 SERIAL_PORT=/dev/ttyACM1 ./scripts/run-all.sh
   ```
 
-### Quick start (manual, separate terminals)
+### Option C — Fully manual (separate terminals)
 
 1. Start backend:
    - `cd backend`
-   - `./venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000`
+   - `./venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000`
 2. Start frontend:
    - `cd frontend`
    - `npm run dev`
 3. (Optional) Start ingestion/training stack:
-   - `cd iot-airflow`
-   - `docker compose up -d` (Airflow only; no USB serial required)
+   - `docker compose up -d postgres airflow-init airflow-webserver airflow-scheduler` (Airflow only; no USB serial required)
    - To log from Arduino over USB when `/dev/ttyACM0` exists: `docker compose --profile serial up -d`
-   - `cd ../iot-pipeline`
-   - run your sensor ingestion script
+   - Or run `iot-pipeline/`'s scripts manually — see `iot-pipeline/README.md`
 4. Open:
    - Frontend: `http://127.0.0.1:5173`
    - API docs: `http://127.0.0.1:8000/docs`

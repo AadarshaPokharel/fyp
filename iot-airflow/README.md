@@ -16,10 +16,14 @@ Apache Airflow project for scheduled ETL and model training.
 
 ## Run (Docker Compose)
 
+The compose file lives at the **project root** (`/home/aadarsha/fyp/docker-compose.yml`), not in this folder — it orchestrates Postgres/Airflow alongside the backend and frontend containers.
+
 ```bash
-cd /home/aadarsha/fyp/iot-airflow
-docker compose up -d
+cd /home/aadarsha/fyp
+docker compose up -d postgres airflow-init airflow-webserver airflow-scheduler
 ```
+
+(Or just `docker compose up -d` with no service names to also bring up `backend` and `frontend` in the same command — see the top-level `README.md`.)
 
 This starts Postgres, Airflow init, webserver, and scheduler. The **`serial-logger`** service is **not** started by default (it needs a USB serial device).
 
@@ -27,7 +31,7 @@ Open Airflow UI (if configured): `http://localhost:8080`
 
 ### Arduino / USB serial (optional)
 
-If you plug in an Arduino (or similar) and it appears as `/dev/ttyACM0`, start the logger with the **`serial`** profile:
+If you plug in an Arduino (or similar) and it appears as `/dev/ttyACM0`, start the logger with the **`serial`** profile (from the project root):
 
 ```bash
 docker compose --profile serial up -d
